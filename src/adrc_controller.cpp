@@ -89,13 +89,14 @@ update_attitude_channel(const VehicleState &state,
     attitude_td[i].h = dt;
     attitude_eso[i].h = dt;
 
-    update_tracking_differentiator(sanitize_scalar(desired_body_rates_frd[i]),
-                                   attitude_td[i]);
+    update_tracking_differentiator(0.0, attitude_td[i]);
     update_eso(attitude_error_desired_frd[i], last_torque_cmd_desired_frd[i],
                attitude_eso[i]);
 
-    const double e1 = -attitude_error_desired_frd[i];
-    const double e2 = attitude_td[i].x1 - current_body_rates_desired_frd[i];
+    const double e1 = attitude_td[i].x1 - attitude_error_desired_frd[i];
+    const double e2 = attitude_td[i].x2 +
+                      sanitize_scalar(desired_body_rates_frd[i]) -
+                      current_body_rates_desired_frd[i];
     torque_cmd_desired_frd[i] +=
         compute_nlsef(e1, e2, params.attitude_nlsef_gains[i]) -
         attitude_eso[i].z3;

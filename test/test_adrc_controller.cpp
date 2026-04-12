@@ -120,7 +120,7 @@ TEST(AdrcController, AttitudeNlsefGeneratesCorrectiveTorqueFromAttitudeError) {
 }
 
 TEST(AdrcController,
-     AttitudeRateFeedforwardGeneratesTorqueFromAngularRateError) {
+     AttitudeRateFeedforwardGeneratesTorqueWithZeroErrorTdReference) {
   px4adrc::ControllerParams params{};
   params.max_total_thrust_n = 60.0;
   for (auto &gains : params.position_nlsef_gains) {
@@ -137,7 +137,7 @@ TEST(AdrcController,
     gains.k1 = 0.0;
     gains.k2 = 0.0;
   }
-  params.attitude_td_gains[0].r = 20.0;
+  params.attitude_td_gains[0].r = 0.0;
   params.attitude_nlsef_gains[0].k2 = 0.8;
   params.attitude_nlsef_gains[0].alpha2 = 1.0;
   px4adrc::AdrcController controller(params);
