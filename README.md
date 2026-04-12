@@ -46,10 +46,9 @@ Controller tuning lives in [config/px4adrc.yaml](/home/nanwan/work_dir/px4adrc_w
 - `position_adrc.td_r`
 - `position_adrc.eso_beta1/beta2/beta3/b0`
 - `position_adrc.nlsef_k1/k2/alpha1/alpha2/delta`
-- `attitude_adrc.attitude_kp`
-- `attitude_adrc.rate_td_r`
-- `attitude_adrc.rate_eso_beta1/beta2/beta3/b0`
-- `attitude_adrc.rate_nlsef_k1/k2/alpha1/alpha2/delta`
+- `attitude_adrc.attitude_td_r`
+- `attitude_adrc.attitude_eso_beta1/beta2/beta3/b0`
+- `attitude_adrc.attitude_nlsef_k1/k2/alpha1/alpha2/delta`
 
 ## Notes
 
