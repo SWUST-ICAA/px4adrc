@@ -2,8 +2,7 @@
 
 #include "px4adrc/adrc_blocks.hpp"
 
-TEST(AdrcBlocks, TrackingDifferentiatorConvergesTowardReference)
-{
+TEST(AdrcBlocks, TrackingDifferentiatorConvergesTowardReference) {
   px4adrc::TrackingDifferentiator td{};
   td.r = 20.0;
   td.h = 0.01;
@@ -15,8 +14,7 @@ TEST(AdrcBlocks, TrackingDifferentiatorConvergesTowardReference)
   EXPECT_NEAR(td.x1, 1.0, 5e-2);
 }
 
-TEST(AdrcBlocks, EsoTracksConstantSignal)
-{
+TEST(AdrcBlocks, EsoTracksConstantSignal) {
   px4adrc::ExtendedStateObserver eso{};
   eso.beta1 = 80.0;
   eso.beta2 = 400.0;
@@ -31,8 +29,7 @@ TEST(AdrcBlocks, EsoTracksConstantSignal)
   EXPECT_NEAR(eso.z1, 0.5, 5e-2);
 }
 
-TEST(AdrcBlocks, NlsefProducesZeroForZeroError)
-{
+TEST(AdrcBlocks, NlsefProducesZeroForZeroError) {
   px4adrc::NlsefGains gains{};
   gains.k1 = 2.0;
   gains.k2 = 1.0;

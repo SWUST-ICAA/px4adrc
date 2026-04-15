@@ -6,9 +6,8 @@
 
 namespace {
 
-px4adrc::ControlOutput run_controller_steps(
-    px4adrc::AdrcController &controller, const px4adrc::VehicleState &state,
-    const px4adrc::TrajectoryReference &ref, int steps, double dt) {
+px4adrc::ControlOutput run_controller_steps(px4adrc::AdrcController &controller, const px4adrc::VehicleState &state,
+                                            const px4adrc::TrajectoryReference &ref, int steps, double dt) {
   px4adrc::ControlOutput output{};
   for (int i = 0; i < steps; ++i) {
     output = controller.update(state, ref, dt);
@@ -106,8 +105,7 @@ TEST(AdrcController, AttitudeNlsefGeneratesCorrectiveTorqueFromAttitudeError) {
   px4adrc::AdrcController controller(params);
 
   px4adrc::VehicleState state{};
-  state.q_body_to_ned =
-      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitX()));
+  state.q_body_to_ned = Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitX()));
 
   px4adrc::TrajectoryReference ref{};
   ref.valid = true;
@@ -119,8 +117,7 @@ TEST(AdrcController, AttitudeNlsefGeneratesCorrectiveTorqueFromAttitudeError) {
   EXPECT_NEAR(output.torque_frd.z(), 0.0, 1e-6);
 }
 
-TEST(AdrcController,
-     AttitudeRateFeedforwardGeneratesTorqueWithZeroErrorTdReference) {
+TEST(AdrcController, AttitudeRateFeedforwardGeneratesTorqueWithZeroErrorTdReference) {
   px4adrc::ControllerParams params{};
   params.max_total_thrust_n = 60.0;
   for (auto &gains : params.position_nlsef_gains) {
@@ -179,15 +176,11 @@ TEST(AdrcController, PositionTdBandwidthControlsAltitudeResponse) {
   ref.position_ned.z() = -1.0;
   ref.valid = true;
 
-  const auto frozen_output =
-      run_controller_steps(frozen_controller, state, ref, 500, 0.01);
-  const auto responsive_output =
-      run_controller_steps(responsive_controller, state, ref, 500, 0.01);
+  const auto frozen_output = run_controller_steps(frozen_controller, state, ref, 500, 0.01);
+  const auto responsive_output = run_controller_steps(responsive_controller, state, ref, 500, 0.01);
 
-  EXPECT_NEAR(frozen_output.total_thrust_n,
-              frozen_params.mass_kg * frozen_params.gravity, 1e-6);
-  EXPECT_GT(responsive_output.total_thrust_n,
-            responsive_params.mass_kg * responsive_params.gravity);
+  EXPECT_NEAR(frozen_output.total_thrust_n, frozen_params.mass_kg * frozen_params.gravity, 1e-6);
+  EXPECT_GT(responsive_output.total_thrust_n, responsive_params.mass_kg * responsive_params.gravity);
 }
 
 TEST(AdrcController, PositionEsoGainsAffectAltitudeResponse) {
@@ -219,13 +212,10 @@ TEST(AdrcController, PositionEsoGainsAffectAltitudeResponse) {
   px4adrc::TrajectoryReference ref{};
   ref.valid = true;
 
-  const auto passive_output =
-      run_controller_steps(passive_controller, state, ref, 50, 0.01);
-  const auto observing_output =
-      run_controller_steps(observing_controller, state, ref, 50, 0.01);
+  const auto passive_output = run_controller_steps(passive_controller, state, ref, 50, 0.01);
+  const auto observing_output = run_controller_steps(observing_controller, state, ref, 50, 0.01);
 
-  EXPECT_NEAR(passive_output.total_thrust_n,
-              passive_params.mass_kg * passive_params.gravity, 1e-6);
+  EXPECT_NEAR(passive_output.total_thrust_n, passive_params.mass_kg * passive_params.gravity, 1e-6);
   EXPECT_LT(observing_output.total_thrust_n, passive_output.total_thrust_n);
 }
 
@@ -271,9 +261,8 @@ TEST(AdrcController, HorizontalPositionErrorProducesDifferentialMotorThrusts) {
 
   const auto output = controller.update(state, ref, 0.01);
 
-  const bool all_equal =
-      std::abs(output.motor_thrusts_n[0] - output.motor_thrusts_n[1]) < 1e-6 &&
-      std::abs(output.motor_thrusts_n[1] - output.motor_thrusts_n[2]) < 1e-6 &&
-      std::abs(output.motor_thrusts_n[2] - output.motor_thrusts_n[3]) < 1e-6;
+  const bool all_equal = std::abs(output.motor_thrusts_n[0] - output.motor_thrusts_n[1]) < 1e-6 &&
+                         std::abs(output.motor_thrusts_n[1] - output.motor_thrusts_n[2]) < 1e-6 &&
+                         std::abs(output.motor_thrusts_n[2] - output.motor_thrusts_n[3]) < 1e-6;
   EXPECT_FALSE(all_equal);
 }

@@ -14,8 +14,10 @@ public:
   void set_params(const ControllerParams &params);
   const ControllerParams &params() const;
 
-  ControlOutput update(const VehicleState &state,
-                       const TrajectoryReference &ref, double dt);
+  PositionControlOutput update_position(const VehicleState &state, const TrajectoryReference &ref, double dt);
+  ControlOutput update_attitude(const VehicleState &state, const PositionControlOutput &position_output, const TrajectoryReference &ref,
+                                double dt);
+  ControlOutput update(const VehicleState &state, const TrajectoryReference &ref, double dt);
 
 private:
   ControllerParams params_{};

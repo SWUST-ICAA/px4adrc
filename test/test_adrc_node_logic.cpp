@@ -13,58 +13,55 @@ std::string package_root_from_test_file() {
   const std::string file = __FILE__;
   const std::string marker = "/test/test_adrc_node_logic.cpp";
   const auto marker_pos = file.rfind(marker);
-  return marker_pos == std::string::npos ? std::string(".")
-                                         : file.substr(0, marker_pos);
+  return marker_pos == std::string::npos ? std::string(".") : file.substr(0, marker_pos);
 }
 
 std::string read_text_file(const std::string &path) {
   std::ifstream stream(path);
-  return std::string(std::istreambuf_iterator<char>(stream),
-                     std::istreambuf_iterator<char>());
+  return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 }
 
 } // namespace
 
 TEST(AdrcNodeLogic, StateNamesRemainStable) {
-  EXPECT_EQ(px4adrc::to_string(px4adrc::MissionState::WAIT_FOR_STATE),
-            std::string("WAIT_FOR_STATE"));
-  EXPECT_EQ(px4adrc::to_string(px4adrc::MissionState::WAIT_FOR_MANUAL_ARM),
-            std::string("WAIT_FOR_MANUAL_ARM"));
-  EXPECT_EQ(px4adrc::to_string(px4adrc::MissionState::TRACKING),
-            std::string("TRACKING"));
+  EXPECT_EQ(px4adrc::to_string(px4adrc::MissionState::WAIT_FOR_STATE), std::string("WAIT_FOR_STATE"));
+  EXPECT_EQ(px4adrc::to_string(px4adrc::MissionState::WAIT_FOR_MANUAL_ARM), std::string("WAIT_FOR_MANUAL_ARM"));
+  EXPECT_EQ(px4adrc::to_string(px4adrc::MissionState::TRACKING), std::string("TRACKING"));
 }
 
 TEST(AdrcNodeLogic, OffboardWithoutArmWaitsForManualArm) {
-  EXPECT_EQ(px4adrc::next_mission_state(px4adrc::MissionState::REQUEST_OFFBOARD,
-                                        true, false, false, false),
+  EXPECT_EQ(px4adrc::next_mission_state(px4adrc::MissionState::REQUEST_OFFBOARD, true, false, false, false),
             px4adrc::MissionState::WAIT_FOR_MANUAL_ARM);
 }
 
 TEST(AdrcNodeLogic, ReferenceTimeoutReturnsToHold) {
-  EXPECT_EQ(px4adrc::next_mission_state(px4adrc::MissionState::TRACKING, true,
-                                        true, false, false),
-            px4adrc::MissionState::HOLD);
+  EXPECT_EQ(px4adrc::next_mission_state(px4adrc::MissionState::TRACKING, true, true, false, false), px4adrc::MissionState::HOLD);
 }
 
 TEST(AdrcNodeLogic, HoldAfterTakeoffRequestsStartTrackingOnce) {
-  EXPECT_TRUE(px4adrc::should_publish_start_tracking_signal(
-      px4adrc::MissionState::HOLD, true, false));
-  EXPECT_FALSE(px4adrc::should_publish_start_tracking_signal(
-      px4adrc::MissionState::HOLD, true, true));
-  EXPECT_FALSE(px4adrc::should_publish_start_tracking_signal(
-      px4adrc::MissionState::TAKEOFF, true, false));
+  EXPECT_TRUE(px4adrc::should_publish_start_tracking_signal(px4adrc::MissionState::HOLD, true, false));
+  EXPECT_FALSE(px4adrc::should_publish_start_tracking_signal(px4adrc::MissionState::HOLD, true, true));
+  EXPECT_FALSE(px4adrc::should_publish_start_tracking_signal(px4adrc::MissionState::TAKEOFF, true, false));
 }
 
-TEST(AdrcNodeLogic, ReferenceMessageRejectsNonFinitePosition) {
+TEST(AdrcNodeLogic, ReferenceMessageConversionPreservesPositionFields) {
   px4adrc::msg::FlatTrajectoryReference msg{};
   msg.position_ned.x = std::numeric_limits<double>::quiet_NaN();
   msg.position_ned.y = 0.0;
   msg.position_ned.z = -2.0;
+  msg.yaw = 1.2F;
 
-  EXPECT_FALSE(px4adrc::reference_message_has_valid_position(msg));
+  const auto ref = px4adrc::trajectory_reference_from_msg(msg, 7U);
+
+  EXPECT_TRUE(ref.valid);
+  EXPECT_EQ(ref.timestamp_us, 7U);
+  EXPECT_TRUE(std::isnan(ref.position_ned.x()));
+  EXPECT_DOUBLE_EQ(ref.position_ned.y(), 0.0);
+  EXPECT_DOUBLE_EQ(ref.position_ned.z(), -2.0);
+  EXPECT_FLOAT_EQ(ref.yaw, 1.2F);
 }
 
-TEST(AdrcNodeLogic, ReferenceMessageConversionSanitizesOptionalFields) {
+TEST(AdrcNodeLogic, ReferenceMessageConversionPreservesOptionalFields) {
   px4adrc::msg::FlatTrajectoryReference msg{};
   msg.position_ned.x = 1.0;
   msg.position_ned.y = 2.0;
@@ -90,42 +87,46 @@ TEST(AdrcNodeLogic, ReferenceMessageConversionSanitizesOptionalFields) {
   EXPECT_DOUBLE_EQ(ref.position_ned.x(), 1.0);
   EXPECT_DOUBLE_EQ(ref.position_ned.y(), 2.0);
   EXPECT_DOUBLE_EQ(ref.position_ned.z(), -3.0);
-  EXPECT_DOUBLE_EQ(ref.velocity_ned.x(), 0.0);
+  EXPECT_TRUE(std::isinf(ref.velocity_ned.x()));
   EXPECT_DOUBLE_EQ(ref.velocity_ned.y(), 4.0);
   EXPECT_DOUBLE_EQ(ref.velocity_ned.z(), -5.0);
   EXPECT_DOUBLE_EQ(ref.acceleration_ned.x(), 0.1);
-  EXPECT_DOUBLE_EQ(ref.acceleration_ned.y(), 0.0);
+  EXPECT_TRUE(std::isnan(ref.acceleration_ned.y()));
   EXPECT_DOUBLE_EQ(ref.acceleration_ned.z(), 0.3);
   EXPECT_DOUBLE_EQ(ref.body_rates_frd.x(), 0.4);
-  EXPECT_DOUBLE_EQ(ref.body_rates_frd.y(), 0.0);
+  EXPECT_TRUE(std::isnan(ref.body_rates_frd.y()));
   EXPECT_DOUBLE_EQ(ref.body_rates_frd.z(), 0.6);
-  EXPECT_DOUBLE_EQ(ref.body_torque_frd.x(), 0.0);
+  EXPECT_TRUE(std::isinf(ref.body_torque_frd.x()));
   EXPECT_DOUBLE_EQ(ref.body_torque_frd.y(), -0.2);
   EXPECT_DOUBLE_EQ(ref.body_torque_frd.z(), 0.3);
-  EXPECT_DOUBLE_EQ(ref.yaw, 0.0);
+  EXPECT_TRUE(std::isnan(ref.yaw));
 }
 
 TEST(AdrcNodeLogic, RuntimeArtifactsExistAndMatchCurrentContract) {
   const auto package_root = package_root_from_test_file();
   const auto controller_config_path = package_root + "/config/px4adrc.yaml";
-  const auto reference_config_path =
-      package_root + "/config/flatness_reference.yaml";
+  const auto reference_config_path = package_root + "/config/flatness_reference.yaml";
   const auto launch_path = package_root + "/launch/px4adrc.launch.py";
-  const auto script_path =
-      package_root + "/scripts/flatness_reference_publisher.py";
+  const auto script_path = package_root + "/scripts/flatness_reference_publisher.py";
+  const auto node_source_path = package_root + "/src/adrc_node.cpp";
 
   ASSERT_FALSE(read_text_file(controller_config_path).empty());
   ASSERT_FALSE(read_text_file(reference_config_path).empty());
   ASSERT_FALSE(read_text_file(launch_path).empty());
   ASSERT_FALSE(read_text_file(script_path).empty());
+  ASSERT_FALSE(read_text_file(node_source_path).empty());
 
   const auto controller_config_text = read_text_file(controller_config_path);
   const auto reference_config_text = read_text_file(reference_config_path);
   const auto launch_text = read_text_file(launch_path);
   const auto script_text = read_text_file(script_path);
+  const auto node_source_text = read_text_file(node_source_path);
 
   EXPECT_NE(controller_config_text.find("reference:"), std::string::npos);
   EXPECT_NE(controller_config_text.find("start_tracking"), std::string::npos);
+  EXPECT_EQ(controller_config_text.find("control_rate_hz"), std::string::npos);
+  EXPECT_EQ(controller_config_text.find("velocity_diff_cutoff_hz"), std::string::npos);
+  EXPECT_EQ(controller_config_text.find("body_rate_diff_cutoff_hz"), std::string::npos);
   EXPECT_EQ(controller_config_text.find("attitude_kp"), std::string::npos);
   EXPECT_NE(controller_config_text.find("attitude_td_r"), std::string::npos);
   EXPECT_NE(controller_config_text.find("eso_beta1"), std::string::npos);
@@ -133,9 +134,14 @@ TEST(AdrcNodeLogic, RuntimeArtifactsExistAndMatchCurrentContract) {
   EXPECT_NE(reference_config_text.find("start_tracking"), std::string::npos);
   EXPECT_NE(launch_text.find("px4adrc.yaml"), std::string::npos);
   EXPECT_NE(launch_text.find("flatness_reference.yaml"), std::string::npos);
-  EXPECT_NE(launch_text.find("flatness_reference_publisher.py"),
-            std::string::npos);
-  EXPECT_NE(script_text.find("from px4adrc.msg import FlatTrajectoryReference"),
-            std::string::npos);
+  EXPECT_NE(launch_text.find("flatness_reference_publisher.py"), std::string::npos);
+  EXPECT_NE(script_text.find("from px4adrc.msg import FlatTrajectoryReference"), std::string::npos);
   EXPECT_NE(script_text.find("start_tracking"), std::string::npos);
+  EXPECT_NE(node_source_text.find("/fmu/out/vehicle_local_position"), std::string::npos);
+  EXPECT_NE(node_source_text.find("/fmu/out/vehicle_attitude"), std::string::npos);
+  EXPECT_NE(node_source_text.find("/fmu/out/vehicle_angular_velocity"), std::string::npos);
+  EXPECT_EQ(node_source_text.find("/fmu/out/vehicle_odometry"), std::string::npos);
+  EXPECT_EQ(node_source_text.find("create_wall_timer"), std::string::npos);
+  EXPECT_EQ(node_source_text.find("sanitize_scalar"), std::string::npos);
+  EXPECT_EQ(node_source_text.find("sanitize_vec3"), std::string::npos);
 }

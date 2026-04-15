@@ -3,7 +3,6 @@ px4adrc:
     topics:
       reference: /px4adrc/reference
       start_tracking: /mission/start_tracking
-    control_rate_hz: 500.0
     mission:
       takeoff_target_z: -2.0
       takeoff_z_threshold: 0.2
@@ -41,6 +40,3 @@ px4adrc:
       attitude_nlsef_alpha1: [1.0, 1.0, 1.0]
       attitude_nlsef_alpha2: [1.0, 1.0, 1.0]
       attitude_nlsef_delta: [0.01, 0.01, 0.01]
-    filters:
-      velocity_diff_cutoff_hz: 10.0
-      body_rate_diff_cutoff_hz: 20.0

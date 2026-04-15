@@ -23,34 +23,34 @@ struct ControllerParams {
   double thrust_model_factor{1.0};
   double max_tilt_rad{35.0 * M_PI / 180.0};
   std::array<TrackingDifferentiatorGains, 3> position_td_gains{{
-      TrackingDifferentiatorGains{1.0},
-      TrackingDifferentiatorGains{1.0},
-      TrackingDifferentiatorGains{1.0},
+    TrackingDifferentiatorGains{1.0},
+    TrackingDifferentiatorGains{1.0},
+    TrackingDifferentiatorGains{1.0},
   }};
   std::array<EsoGains, 3> position_eso_gains{{
-      EsoGains{1.0, 1.0, 1.0, 1.0},
-      EsoGains{1.0, 1.0, 1.0, 1.0},
-      EsoGains{1.0, 1.0, 1.0, 1.0},
+    EsoGains{1.0, 1.0, 1.0, 1.0},
+    EsoGains{1.0, 1.0, 1.0, 1.0},
+    EsoGains{1.0, 1.0, 1.0, 1.0},
   }};
   std::array<NlsefGains, 3> position_nlsef_gains{{
-      NlsefGains{2.5, 1.5, 0.8, 0.5, 0.01},
-      NlsefGains{2.5, 1.5, 0.8, 0.5, 0.01},
-      NlsefGains{2.0, 1.2, 0.8, 0.5, 0.01},
+    NlsefGains{2.5, 1.5, 0.8, 0.5, 0.01},
+    NlsefGains{2.5, 1.5, 0.8, 0.5, 0.01},
+    NlsefGains{2.0, 1.2, 0.8, 0.5, 0.01},
   }};
   std::array<TrackingDifferentiatorGains, 3> attitude_td_gains{{
-      TrackingDifferentiatorGains{1.0},
-      TrackingDifferentiatorGains{1.0},
-      TrackingDifferentiatorGains{1.0},
+    TrackingDifferentiatorGains{1.0},
+    TrackingDifferentiatorGains{1.0},
+    TrackingDifferentiatorGains{1.0},
   }};
   std::array<EsoGains, 3> attitude_eso_gains{{
-      EsoGains{1.0, 1.0, 1.0, 1.0},
-      EsoGains{1.0, 1.0, 1.0, 1.0},
-      EsoGains{1.0, 1.0, 1.0, 1.0},
+    EsoGains{1.0, 1.0, 1.0, 1.0},
+    EsoGains{1.0, 1.0, 1.0, 1.0},
+    EsoGains{1.0, 1.0, 1.0, 1.0},
   }};
   std::array<NlsefGains, 3> attitude_nlsef_gains{{
-      NlsefGains{0.8, 0.05, 1.0, 1.0, 0.01},
-      NlsefGains{0.8, 0.05, 1.0, 1.0, 0.01},
-      NlsefGains{0.5, 0.03, 1.0, 1.0, 0.01},
+    NlsefGains{0.8, 0.05, 1.0, 1.0, 0.01},
+    NlsefGains{0.8, 0.05, 1.0, 1.0, 0.01},
+    NlsefGains{0.5, 0.03, 1.0, 1.0, 0.01},
   }};
 };
 
@@ -73,6 +73,11 @@ struct TrajectoryReference {
   Eigen::Vector3d body_torque_frd{Eigen::Vector3d::Zero()};
   double yaw{0.0};
   bool valid{false};
+};
+
+struct PositionControlOutput {
+  double total_thrust_n{0.0};
+  Eigen::Quaterniond desired_q_body_to_ned{Eigen::Quaterniond::Identity()};
 };
 
 struct ControlOutput {
