@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import rclpy
-from px4_msgs.msg import VehicleOdometry
+from px4_msgs.msg import VehicleAttitude, VehicleLocalPosition
 from rclpy.node import Node
 from rclpy.qos import (
     DurabilityPolicy,
@@ -365,13 +365,18 @@ class FlatnessReferencePublisher(Node):
         self.active_center_ned: Optional[np.ndarray] = None
         self.active_base_height_ned = 0.0
         self.locked_yaw_rad = 0.0
-        self.last_pose_frame_warning_ns = 0
 
         self.reference_pub = self.create_publisher(FlatTrajectoryReference, self.reference_topic, 10)
-        self.odom_sub = self.create_subscription(
-            VehicleOdometry,
-            "/fmu/out/vehicle_odometry",
-            self.odometry_callback,
+        self.local_position_sub = self.create_subscription(
+            VehicleLocalPosition,
+            "/fmu/out/vehicle_local_position",
+            self.local_position_callback,
+            qos_profile_sensor_data,
+        )
+        self.attitude_sub = self.create_subscription(
+            VehicleAttitude,
+            "/fmu/out/vehicle_attitude",
+            self.attitude_callback,
             qos_profile_sensor_data,
         )
         start_qos = QoSProfile(
@@ -391,17 +396,14 @@ class FlatnessReferencePublisher(Node):
             self.timer_callback,
         )
 
-    def odometry_callback(self, msg: VehicleOdometry) -> None:
-        if msg.pose_frame != VehicleOdometry.POSE_FRAME_NED:
-            now_ns = self.get_clock().now().nanoseconds
-            if now_ns - self.last_pose_frame_warning_ns > 5_000_000_000:
-                self.get_logger().warning(
-                    f"vehicle_odometry pose_frame is not NED: {msg.pose_frame}"
-                )
-                self.last_pose_frame_warning_ns = now_ns
+    def local_position_callback(self, msg: VehicleLocalPosition) -> None:
+        if not msg.xy_valid or not msg.z_valid:
+            self.get_logger().warning("Ignoring vehicle_local_position without valid XY/Z")
             return
 
-        self.latest_position_ned = np.asarray(msg.position, dtype=float)
+        self.latest_position_ned = np.array([msg.x, msg.y, msg.z], dtype=float)
+
+    def attitude_callback(self, msg: VehicleAttitude) -> None:
         q_wxyz = quaternion_normalize(np.asarray(msg.q, dtype=float))
         w, x, y, z = q_wxyz
         siny_cosp = 2.0 * (w * z + x * y)
@@ -413,7 +415,7 @@ class FlatnessReferencePublisher(Node):
             if self.enabled:
                 return
             if self.latest_position_ned is None:
-                self.get_logger().warning("Start requested before odometry was received")
+                self.get_logger().warning("Start requested before vehicle_local_position was received")
                 return
             if self.yaw_mode == "fixed":
                 self.locked_yaw_rad = (

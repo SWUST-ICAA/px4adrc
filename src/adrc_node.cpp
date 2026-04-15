@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace px4adrc {
 
@@ -305,6 +306,12 @@ void AdrcNode::local_position_callback(const px4_msgs::msg::VehicleLocalPosition
     return;
   }
 
+  if (!msg->xy_valid || !msg->z_valid || !msg->v_xy_valid || !msg->v_z_valid) {
+    has_local_position_ = false;
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "vehicle_local_position is not fully valid for control");
+    return;
+  }
+
   state_.timestamp_us = msg->timestamp;
   state_.position_ned = Eigen::Vector3d(msg->x, msg->y, msg->z);
   state_.velocity_ned = Eigen::Vector3d(msg->vx, msg->vy, msg->vz);
@@ -542,7 +549,7 @@ void AdrcNode::publish_actuator_motors(uint64_t timestamp_us, uint64_t timestamp
   msg.reversible_flags = 0U;
 
   for (float &value : msg.control) {
-    value = 0.0F;
+    value = std::numeric_limits<float>::quiet_NaN();
   }
 
   for (int i = 0; i < kMotorCount; ++i) {

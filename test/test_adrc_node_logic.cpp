@@ -107,18 +107,21 @@ TEST(AdrcNodeLogic, RuntimeArtifactsExistAndMatchCurrentContract) {
   const auto controller_config_path = package_root + "/config/px4adrc.yaml";
   const auto reference_config_path = package_root + "/config/flatness_reference.yaml";
   const auto launch_path = package_root + "/launch/px4adrc.launch.py";
+  const auto readme_path = package_root + "/README.md";
   const auto script_path = package_root + "/scripts/flatness_reference_publisher.py";
   const auto node_source_path = package_root + "/src/adrc_node.cpp";
 
   ASSERT_FALSE(read_text_file(controller_config_path).empty());
   ASSERT_FALSE(read_text_file(reference_config_path).empty());
   ASSERT_FALSE(read_text_file(launch_path).empty());
+  ASSERT_FALSE(read_text_file(readme_path).empty());
   ASSERT_FALSE(read_text_file(script_path).empty());
   ASSERT_FALSE(read_text_file(node_source_path).empty());
 
   const auto controller_config_text = read_text_file(controller_config_path);
   const auto reference_config_text = read_text_file(reference_config_path);
   const auto launch_text = read_text_file(launch_path);
+  const auto readme_text = read_text_file(readme_path);
   const auto script_text = read_text_file(script_path);
   const auto node_source_text = read_text_file(node_source_path);
 
@@ -135,11 +138,24 @@ TEST(AdrcNodeLogic, RuntimeArtifactsExistAndMatchCurrentContract) {
   EXPECT_NE(launch_text.find("px4adrc.yaml"), std::string::npos);
   EXPECT_NE(launch_text.find("flatness_reference.yaml"), std::string::npos);
   EXPECT_NE(launch_text.find("flatness_reference_publisher.py"), std::string::npos);
+  EXPECT_NE(readme_text.find("/fmu/out/vehicle_local_position"), std::string::npos);
+  EXPECT_NE(readme_text.find("/fmu/out/vehicle_attitude"), std::string::npos);
+  EXPECT_NE(readme_text.find("/fmu/out/vehicle_angular_velocity"), std::string::npos);
+  EXPECT_NE(readme_text.find("desired body frame `FRD`"), std::string::npos);
+  EXPECT_EQ(readme_text.find("/fmu/out/vehicle_odometry"), std::string::npos);
   EXPECT_NE(script_text.find("from px4adrc.msg import FlatTrajectoryReference"), std::string::npos);
   EXPECT_NE(script_text.find("start_tracking"), std::string::npos);
+  EXPECT_NE(script_text.find("/fmu/out/vehicle_local_position"), std::string::npos);
+  EXPECT_NE(script_text.find("/fmu/out/vehicle_attitude"), std::string::npos);
+  EXPECT_EQ(script_text.find("/fmu/out/vehicle_odometry"), std::string::npos);
   EXPECT_NE(node_source_text.find("/fmu/out/vehicle_local_position"), std::string::npos);
   EXPECT_NE(node_source_text.find("/fmu/out/vehicle_attitude"), std::string::npos);
   EXPECT_NE(node_source_text.find("/fmu/out/vehicle_angular_velocity"), std::string::npos);
+  EXPECT_NE(node_source_text.find("msg->xy_valid"), std::string::npos);
+  EXPECT_NE(node_source_text.find("msg->z_valid"), std::string::npos);
+  EXPECT_NE(node_source_text.find("msg->v_xy_valid"), std::string::npos);
+  EXPECT_NE(node_source_text.find("msg->v_z_valid"), std::string::npos);
+  EXPECT_NE(node_source_text.find("quiet_NaN"), std::string::npos);
   EXPECT_EQ(node_source_text.find("/fmu/out/vehicle_odometry"), std::string::npos);
   EXPECT_EQ(node_source_text.find("create_wall_timer"), std::string::npos);
   EXPECT_EQ(node_source_text.find("sanitize_scalar"), std::string::npos);

@@ -4,7 +4,10 @@ ROS2 PX4 quadrotor controller package using a dual-loop ADRC structure and direc
 
 ## Features
 
-- PX4-native `NED` and `FRD` control path with `vehicle_odometry` as the primary state input
+- PX4-native `NED` and `FRD` control path
+- Position loop driven by `/fmu/out/vehicle_local_position`
+- Attitude state from `/fmu/out/vehicle_attitude`
+- Attitude loop driven by `/fmu/out/vehicle_angular_velocity`
 - Fixed Quad-X motor order for PX4 `direct_actuator` mode
 - Per-motor thrust mapped to throttle using PX4 `THR_MDL_FAC`
 - Continuous offboard requests after node startup
@@ -34,10 +37,19 @@ No runtime `motor_output_map` parameter is kept.
 
 ## State Inputs
 
-- `/fmu/out/vehicle_odometry`
+- `/fmu/out/vehicle_local_position`
+- `/fmu/out/vehicle_attitude`
+- `/fmu/out/vehicle_angular_velocity`
 - `/fmu/out/vehicle_status_v1`
 
-`/fmu/out/sensor_combined` is intentionally not used as the primary control input in this package.
+The controller requires valid `vehicle_local_position` XY/Z and VXY/VZ estimates before running control.
+
+## Reference Contract
+
+- `position_ned`, `velocity_ned`, `acceleration_ned`: PX4 world frame `NED`
+- `body_rates_frd`: desired body-rate feedforward in the desired body frame `FRD`
+- `body_torque_frd`: desired body-torque feedforward in the desired body frame `FRD`
+- `yaw`: desired heading in `NED`
 
 ## Controller Parameters
 
