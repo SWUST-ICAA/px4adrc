@@ -38,6 +38,31 @@ TEST(AdrcNodeLogic, ReferenceTimeoutReturnsToHold) {
   EXPECT_EQ(px4adrc::next_mission_state(px4adrc::MissionState::TRACKING, true, true, false, false), px4adrc::MissionState::HOLD);
 }
 
+TEST(AdrcNodeLogic, NonTrackingReferenceKeepsHoldLogicButUsesCurrentYaw) {
+  px4adrc::TrajectoryReference hold_ref{};
+  hold_ref.valid = true;
+  hold_ref.position_ned = Eigen::Vector3d(0.1, -0.2, -0.3);
+  hold_ref.velocity_ned = Eigen::Vector3d(1.0, -1.0, 0.5);
+  hold_ref.acceleration_ned = Eigen::Vector3d(2.0, -2.0, 1.0);
+  hold_ref.yaw = 0.0;
+
+  const auto wait_ref = px4adrc::non_tracking_reference(hold_ref, px4adrc::MissionState::WAIT_FOR_MANUAL_ARM, -1.0, 1.782249);
+  EXPECT_DOUBLE_EQ(wait_ref.position_ned.x(), 0.1);
+  EXPECT_DOUBLE_EQ(wait_ref.position_ned.y(), -0.2);
+  EXPECT_DOUBLE_EQ(wait_ref.position_ned.z(), -0.3);
+  EXPECT_DOUBLE_EQ(wait_ref.velocity_ned.x(), 1.0);
+  EXPECT_DOUBLE_EQ(wait_ref.velocity_ned.y(), -1.0);
+  EXPECT_DOUBLE_EQ(wait_ref.acceleration_ned.x(), 2.0);
+  EXPECT_DOUBLE_EQ(wait_ref.acceleration_ned.y(), -2.0);
+  EXPECT_DOUBLE_EQ(wait_ref.yaw, 1.782249);
+
+  const auto takeoff_ref = px4adrc::non_tracking_reference(hold_ref, px4adrc::MissionState::TAKEOFF, -1.0, 1.782249);
+  EXPECT_DOUBLE_EQ(takeoff_ref.position_ned.x(), 0.1);
+  EXPECT_DOUBLE_EQ(takeoff_ref.position_ned.y(), -0.2);
+  EXPECT_DOUBLE_EQ(takeoff_ref.position_ned.z(), -1.0);
+  EXPECT_DOUBLE_EQ(takeoff_ref.yaw, 1.782249);
+}
+
 TEST(AdrcNodeLogic, HoldAfterTakeoffRequestsStartTrackingOnce) {
   EXPECT_TRUE(px4adrc::should_publish_start_tracking_signal(px4adrc::MissionState::HOLD, true, false));
   EXPECT_FALSE(px4adrc::should_publish_start_tracking_signal(px4adrc::MissionState::HOLD, true, true));
@@ -138,6 +163,8 @@ TEST(AdrcNodeLogic, RuntimeArtifactsExistAndMatchCurrentContract) {
   EXPECT_NE(launch_text.find("px4adrc.yaml"), std::string::npos);
   EXPECT_NE(launch_text.find("flatness_reference.yaml"), std::string::npos);
   EXPECT_NE(launch_text.find("flatness_reference_publisher.py"), std::string::npos);
+  EXPECT_NE(launch_text.find("DeclareLaunchArgument"), std::string::npos);
+  EXPECT_NE(launch_text.find("launch_reference"), std::string::npos);
   EXPECT_NE(readme_text.find("/fmu/out/vehicle_local_position"), std::string::npos);
   EXPECT_NE(readme_text.find("/fmu/out/vehicle_attitude"), std::string::npos);
   EXPECT_NE(readme_text.find("/fmu/out/vehicle_angular_velocity"), std::string::npos);
@@ -155,6 +182,8 @@ TEST(AdrcNodeLogic, RuntimeArtifactsExistAndMatchCurrentContract) {
   EXPECT_NE(node_source_text.find("msg->z_valid"), std::string::npos);
   EXPECT_NE(node_source_text.find("msg->v_xy_valid"), std::string::npos);
   EXPECT_NE(node_source_text.find("msg->v_z_valid"), std::string::npos);
+  EXPECT_NE(node_source_text.find("reset_controller_state"), std::string::npos);
+  EXPECT_NE(node_source_text.find("if (!is_armed_)"), std::string::npos);
   EXPECT_NE(node_source_text.find("quiet_NaN"), std::string::npos);
   EXPECT_EQ(node_source_text.find("/fmu/out/vehicle_odometry"), std::string::npos);
   EXPECT_EQ(node_source_text.find("create_wall_timer"), std::string::npos);

@@ -35,6 +35,8 @@ MissionState next_mission_state(MissionState current, bool offboard_enabled, boo
 bool should_publish_start_tracking_signal(MissionState state, bool hold_time_elapsed, bool already_sent);
 
 TrajectoryReference trajectory_reference_from_msg(const px4adrc::msg::FlatTrajectoryReference &msg, uint64_t timestamp_us);
+TrajectoryReference non_tracking_reference(const TrajectoryReference &hold_ref, MissionState mission_state, double takeoff_target_z_ned,
+                                           double current_yaw);
 
 class AdrcNode : public rclcpp::Node {
 public:
@@ -56,6 +58,7 @@ private:
   void update_mission_state(uint64_t now_us);
   TrajectoryReference active_reference(uint64_t now_us) const;
   bool ready_for_control() const;
+  void reset_controller_state();
   void update_hold_reference(double target_z_ned);
   bool has_fresh_reference(uint64_t now_us) const;
   double compute_loop_dt(uint64_t now_us, uint64_t *last_loop_us);

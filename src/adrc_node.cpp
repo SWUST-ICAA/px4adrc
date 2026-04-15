@@ -70,6 +70,18 @@ TrajectoryReference trajectory_reference_from_msg(const px4adrc::msg::FlatTrajec
   return ref;
 }
 
+TrajectoryReference non_tracking_reference(const TrajectoryReference &hold_ref, MissionState mission_state, double takeoff_target_z_ned,
+                                           double current_yaw) {
+  TrajectoryReference ref = hold_ref;
+  ref.yaw = current_yaw;
+
+  if (mission_state == MissionState::TAKEOFF) {
+    ref.position_ned.z() = takeoff_target_z_ned;
+  }
+
+  return ref;
+}
+
 std::string to_string(MissionState state) {
   switch (state) {
   case MissionState::WAIT_FOR_STATE: return "WAIT_FOR_STATE";
@@ -354,10 +366,15 @@ void AdrcNode::vehicle_status_callback(const px4_msgs::msg::VehicleStatus::Share
     return;
   }
 
+  const bool was_armed = is_armed_;
   const bool was_offboard = is_offboard_;
   is_armed_ = msg->arming_state == px4_msgs::msg::VehicleStatus::ARMING_STATE_ARMED;
   is_offboard_ = msg->nav_state == px4_msgs::msg::VehicleStatus::NAVIGATION_STATE_OFFBOARD;
   has_status_ = true;
+
+  if (was_armed != is_armed_) {
+    reset_controller_state();
+  }
 
   if (is_offboard_) {
     offboard_ever_engaged_ = true;
@@ -391,6 +408,14 @@ double AdrcNode::compute_loop_dt(uint64_t now_us, uint64_t *last_loop_us) {
   return std::clamp(dt, 1e-4, 0.05);
 }
 
+void AdrcNode::reset_controller_state() {
+  controller_.set_params(controller_.params());
+  latest_position_output_ = PositionControlOutput{};
+  has_position_output_ = false;
+  last_position_control_us_ = 0;
+  last_attitude_control_us_ = 0;
+}
+
 void AdrcNode::run_position_loop(uint64_t now_us) {
   if (!ready_for_control()) {
     return;
@@ -398,6 +423,12 @@ void AdrcNode::run_position_loop(uint64_t now_us) {
 
   if (!hold_ref_.valid) {
     update_hold_reference(state_.position_ned.z());
+  }
+
+  if (!is_armed_) {
+    update_hold_reference(state_.position_ned.z());
+    has_position_output_ = false;
+    return;
   }
 
   const double dt = compute_loop_dt(now_us, &last_position_control_us_);
@@ -418,6 +449,10 @@ void AdrcNode::run_attitude_loop(uint64_t now_us) {
 
   publish_offboard_control_mode(now_us);
   update_mission_state(now_micros(*this->get_clock()));
+
+  if (!is_armed_) {
+    return;
+  }
 
   if (!has_position_output_) {
     return;
@@ -476,11 +511,7 @@ TrajectoryReference AdrcNode::active_reference(uint64_t now_us) const {
     return external_ref_;
   }
 
-  TrajectoryReference ref = hold_ref_;
-  if (mission_state_ == MissionState::TAKEOFF) {
-    ref.position_ned.z() = takeoff_target_z_ned_;
-  }
-  return ref;
+  return non_tracking_reference(hold_ref_, mission_state_, takeoff_target_z_ned_, captured_yaw_);
 }
 
 void AdrcNode::update_hold_reference(double target_z_ned) {
