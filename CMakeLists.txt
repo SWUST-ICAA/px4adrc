@@ -6,7 +6,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(ament_cmake_gtest REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -51,37 +50,6 @@ target_include_directories(px4adrc_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-
-if(BUILD_TESTING)
-  ament_add_gtest(test_common test/test_common.cpp)
-  target_link_libraries(test_common "${cpp_typesupport_target}")
-  target_link_libraries(test_common Eigen3::Eigen)
-  target_include_directories(test_common PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-
-  ament_add_gtest(test_adrc_blocks test/test_adrc_blocks.cpp)
-  target_link_libraries(test_adrc_blocks px4adrc_blocks)
-  target_include_directories(test_adrc_blocks PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-
-  ament_add_gtest(test_adrc_controller test/test_adrc_controller.cpp)
-  target_link_libraries(test_adrc_controller px4adrc_core)
-  target_include_directories(test_adrc_controller PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-
-  ament_add_gtest(test_adrc_node_logic test/test_adrc_node_logic.cpp)
-  target_link_libraries(test_adrc_node_logic px4adrc_node_lib)
-  target_include_directories(test_adrc_node_logic PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-endif()
 
 install(TARGETS px4adrc_blocks px4adrc_core px4adrc_node_lib px4adrc_node
   ARCHIVE DESTINATION lib

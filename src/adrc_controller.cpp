@@ -23,6 +23,20 @@ void apply_eso_gains(std::array<ExtendedStateObserver, 3> &eso_states, const std
   }
 }
 
+void initialize_position_states(const VehicleState &state, const TrajectoryReference &ref,
+                                std::array<TrackingDifferentiator, 3> &pos_td,
+                                std::array<ExtendedStateObserver, 3> &pos_eso,
+                                std::array<double, 3> &last_accel_cmd_ned) {
+  for (int i = 0; i < 3; ++i) {
+    pos_td[i].x1 = ref.position_ned[i];
+    pos_td[i].x2 = 0.0;
+    pos_eso[i].z1 = state.position_ned[i];
+    pos_eso[i].z2 = state.velocity_ned[i];
+    pos_eso[i].z3 = 0.0;
+    last_accel_cmd_ned[i] = ref.acceleration_ned[i];
+  }
+}
+
 Eigen::Vector3d update_position_channel(const VehicleState &state, const TrajectoryReference &ref,
                                         std::array<TrackingDifferentiator, 3> &pos_td, std::array<ExtendedStateObserver, 3> &pos_eso,
                                         std::array<double, 3> &last_accel_cmd_ned, const ControllerParams &params, double dt) {
@@ -94,12 +108,18 @@ void AdrcController::set_params(const ControllerParams &params) {
   apply_eso_gains(attitude_eso_, params_.attitude_eso_gains);
   last_position_accel_cmd_ned_.fill(0.0);
   last_attitude_torque_cmd_desired_frd_.fill(0.0);
+  position_states_initialized_ = false;
 }
 
 const ControllerParams &AdrcController::params() const { return params_; }
 
 PositionControlOutput AdrcController::update_position(const VehicleState &state, const TrajectoryReference &ref, double dt) {
   const double clamped_dt = std::clamp(dt, 1e-4, 0.05);
+  if (!position_states_initialized_) {
+    initialize_position_states(state, ref, pos_td_, pos_eso_, last_position_accel_cmd_ned_);
+    position_states_initialized_ = true;
+  }
+
   const Eigen::Vector3d accel_cmd_ned = update_position_channel(state, ref, pos_td_, pos_eso_, last_position_accel_cmd_ned_, params_,
                                                                 clamped_dt);
 
