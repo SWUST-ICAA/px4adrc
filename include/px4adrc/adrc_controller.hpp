@@ -24,7 +24,7 @@ private:
   std::array<ExtendedStateObserver, 3> pos_eso_{};
   std::array<ExtendedStateObserver, 3> attitude_eso_{};
   std::array<double, 3> last_position_accel_cmd_ned_{{0.0, 0.0, 0.0}};
-  std::array<double, 3> last_attitude_torque_cmd_desired_frd_{{0.0, 0.0, 0.0}};
+  std::array<double, 3> last_attitude_feedback_torque_cmd_desired_frd_{{0.0, 0.0, 0.0}};
   bool position_states_initialized_{false};
   bool attitude_states_initialized_{false};
 };

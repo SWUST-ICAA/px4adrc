@@ -227,6 +227,30 @@ TEST(AdrcControllerTest, AttitudeTrackingKeepsTorqueFeedforwardWhenFeedbackIsZer
   EXPECT_NEAR(output.torque_frd.z(), ref.body_torque_frd.z(), kTolerance);
 }
 
+TEST(AdrcControllerTest, AttitudeObserverIgnoresPureTorqueFeedforwardAtZeroError) {
+  ControllerParams params = make_base_params();
+  params.attitude_eso_gains[0] = EsoGains{20.0, 40.0, 0.0, 1.0};
+  params.attitude_nlsef_gains[0] = NlsefGains{0.0, 1.0, 1.0, 1.0, 0.01};
+
+  AdrcController controller(params);
+  const VehicleState state = make_level_state();
+  PositionControlOutput attitude_target{};
+  attitude_target.total_thrust_n = 0.0;
+  attitude_target.desired_q_body_to_ned = state.q_body_to_ned;
+
+  TrajectoryReference ref = make_zero_reference();
+  ref.body_torque_frd = Eigen::Vector3d(0.3, 0.0, 0.0);
+
+  ControlOutput output{};
+  for (int i = 0; i < 5; ++i) {
+    output = controller.update_attitude(state, attitude_target, ref, 0.05);
+  }
+
+  EXPECT_NEAR(output.torque_frd.x(), ref.body_torque_frd.x(), kTolerance);
+  EXPECT_NEAR(output.torque_frd.y(), ref.body_torque_frd.y(), kTolerance);
+  EXPECT_NEAR(output.torque_frd.z(), ref.body_torque_frd.z(), kTolerance);
+}
+
 TEST(AdrcControllerTest, AttitudeObserverFeedbackUsesObservedStateNotRawMeasurement) {
   ControllerParams slow_observer = make_base_params();
   slow_observer.attitude_td_gains[0].r = 0.0;

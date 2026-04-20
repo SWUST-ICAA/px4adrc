@@ -57,14 +57,13 @@ void initialize_position_states(const VehicleState &state, const TrajectoryRefer
 void initialize_attitude_states(const Eigen::Vector3d &attitude_error_desired_frd,
                                 const Eigen::Vector3d &desired_body_rates_frd,
                                 const Eigen::Vector3d &current_body_rates_desired_frd,
-                                const Eigen::Vector3d &torque_feedforward_frd,
                                 std::array<ExtendedStateObserver, 3> &attitude_eso,
-                                std::array<double, 3> &last_torque_cmd_desired_frd) {
+                                std::array<double, 3> &last_feedback_torque_cmd_desired_frd) {
   for (int i = 0; i < 3; ++i) {
     attitude_eso[i].z1 = attitude_error_desired_frd[i];
     attitude_eso[i].z2 = desired_body_rates_frd[i] - current_body_rates_desired_frd[i];
     attitude_eso[i].z3 = 0.0;
-    last_torque_cmd_desired_frd[i] = torque_feedforward_frd[i];
+    last_feedback_torque_cmd_desired_frd[i] = 0.0;
   }
 }
 
@@ -102,7 +101,7 @@ Eigen::Quaterniond current_to_desired_body_quaternion(const Eigen::Quaterniond &
 Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::Quaterniond &desired_q_body_to_ned,
                                         const Eigen::Vector3d &desired_body_rates_frd, const Eigen::Vector3d &torque_feedforward_frd,
                                         std::array<ExtendedStateObserver, 3> &attitude_eso,
-                                        std::array<double, 3> &last_torque_cmd_desired_frd, bool *states_initialized,
+                                        std::array<double, 3> &last_feedback_torque_cmd_desired_frd, bool *states_initialized,
                                         const ControllerParams &params, double dt) {
   const Eigen::Quaterniond q_current_to_desired = current_to_desired_body_quaternion(state.q_body_to_ned, desired_q_body_to_ned);
   const Eigen::Vector3d attitude_error_desired_frd = 2.0 * q_current_to_desired.vec();
@@ -110,7 +109,7 @@ Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::
 
   if (states_initialized != nullptr && !*states_initialized) {
     initialize_attitude_states(attitude_error_desired_frd, desired_body_rates_frd, current_body_rates_desired_frd,
-                               torque_feedforward_frd, attitude_eso, last_torque_cmd_desired_frd);
+                               attitude_eso, last_feedback_torque_cmd_desired_frd);
     *states_initialized = true;
   }
 
@@ -119,13 +118,14 @@ Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::
   for (int i = 0; i < 3; ++i) {
     attitude_eso[i].h = dt;
 
-    update_eso(attitude_error_desired_frd[i], last_torque_cmd_desired_frd[i], attitude_eso[i]);
+    update_eso(attitude_error_desired_frd[i], last_feedback_torque_cmd_desired_frd[i], attitude_eso[i]);
 
     const double e1 = -attitude_eso[i].z1;
     const double e2 = -attitude_eso[i].z2;
     const double feedback_correction = compute_nlsef(e1, e2, params.attitude_nlsef_gains[i]) - attitude_eso[i].z3;
-    torque_cmd_desired_frd[i] += feedback_correction / attitude_eso[i].b0;
-    last_torque_cmd_desired_frd[i] = torque_cmd_desired_frd[i];
+    const double feedback_torque_desired_frd = feedback_correction / attitude_eso[i].b0;
+    torque_cmd_desired_frd[i] += feedback_torque_desired_frd;
+    last_feedback_torque_cmd_desired_frd[i] = feedback_torque_desired_frd;
   }
 
   return q_current_to_desired.conjugate() * torque_cmd_desired_frd;
@@ -142,7 +142,7 @@ void AdrcController::set_params(const ControllerParams &params) {
   apply_eso_gains(pos_eso_, params_.position_eso_gains, position_input_gains(params_));
   apply_eso_gains(attitude_eso_, params_.attitude_eso_gains, attitude_input_gains(params_));
   last_position_accel_cmd_ned_.fill(0.0);
-  last_attitude_torque_cmd_desired_frd_.fill(0.0);
+  last_attitude_feedback_torque_cmd_desired_frd_.fill(0.0);
   position_states_initialized_ = false;
   attitude_states_initialized_ = false;
 }
@@ -178,7 +178,8 @@ ControlOutput AdrcController::update_attitude(const VehicleState &state, const P
                                               const TrajectoryReference &ref, double dt) {
   const double clamped_dt = std::clamp(dt, 1e-4, 0.05);
   const Eigen::Vector3d torque_cmd = update_attitude_channel(state, position_output.desired_q_body_to_ned, ref.body_rates_frd,
-                                                             ref.body_torque_frd, attitude_eso_, last_attitude_torque_cmd_desired_frd_,
+                                                             ref.body_torque_frd, attitude_eso_,
+                                                             last_attitude_feedback_torque_cmd_desired_frd_,
                                                              &attitude_states_initialized_, params_, clamped_dt);
 
   ControlOutput output{};
