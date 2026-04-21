@@ -128,7 +128,7 @@ TEST(AdrcControllerTest, PositionTrackingKeepsAccelerationFeedforwardWhenFeedbac
   EXPECT_NEAR(output.total_thrust_n, expected_total_thrust, kTolerance);
 }
 
-TEST(AdrcControllerTest, PositionControlUsesMeasuredVelocityKinematics) {
+TEST(AdrcControllerTest, PositionControlUsesObserverVelocityEstimate) {
   ControllerParams slow_observer = make_base_params();
   slow_observer.position_td_gains[0].r = 0.0;
   slow_observer.position_eso_gains[0] = EsoGains{0.0, 0.0, 0.0, 1.0};
@@ -151,7 +151,7 @@ TEST(AdrcControllerTest, PositionControlUsesMeasuredVelocityKinematics) {
     fast_output = fast_controller.update_position(state, ref, 0.05);
   }
 
-  EXPECT_NEAR(slow_output.total_thrust_n, fast_output.total_thrust_n, kTolerance);
+  EXPECT_GT(std::abs(slow_output.total_thrust_n - fast_output.total_thrust_n), 1.0e-6);
 }
 
 TEST(AdrcControllerTest, PositionTrackingUsesDirectVelocityReferenceInFlatnessMode) {
@@ -275,7 +275,7 @@ TEST(AdrcControllerTest, AttitudeTrackingRotatesTorqueFeedforwardIntoActiveDesir
   EXPECT_NEAR(output.torque_frd.z(), expected_torque.z(), kTolerance);
 }
 
-TEST(AdrcControllerTest, AttitudeControlUsesMeasuredRateKinematics) {
+TEST(AdrcControllerTest, AttitudeControlUsesObserverRateEstimate) {
   ControllerParams slow_observer = make_base_params();
   slow_observer.attitude_td_gains[0].r = 0.0;
   slow_observer.attitude_eso_gains[0] = EsoGains{0.0, 0.0, 0.0, 1.0};
@@ -298,7 +298,7 @@ TEST(AdrcControllerTest, AttitudeControlUsesMeasuredRateKinematics) {
     fast_output = fast_controller.update_attitude(state, attitude_target, ref, 0.05);
   }
 
-  EXPECT_NEAR(slow_output.torque_frd.x(), fast_output.torque_frd.x(), kTolerance);
+  EXPECT_GT(std::abs(slow_output.torque_frd.x() - fast_output.torque_frd.x()), 1.0e-6);
 }
 
 TEST(AdrcControllerTest, AttitudeTrackingUsesDesiredBodyRatesAfterInitialization) {
@@ -367,6 +367,34 @@ TEST(AdrcControllerTest, AttitudeTrackingRotatesBodyRateFeedforwardIntoActiveDes
   EXPECT_NEAR(output.torque_frd.x(), expected_torque.x(), kTolerance);
   EXPECT_NEAR(output.torque_frd.y(), expected_torque.y(), kTolerance);
   EXPECT_NEAR(output.torque_frd.z(), expected_torque.z(), kTolerance);
+}
+
+TEST(AdrcControllerTest, AttitudeObserverUsesAppliedTotalTorqueInput) {
+  ControllerParams params = make_base_params();
+  params.attitude_eso_gains[0] = EsoGains{0.0, 0.0, 0.0, 1.0};
+  params.attitude_nlsef_gains[0] = NlsefGains{1.0, 0.0, 1.0, 1.0, 0.01};
+
+  AdrcController controller_without_feedforward(params);
+  AdrcController controller_with_feedforward(params);
+
+  const VehicleState state = make_level_state();
+  PositionControlOutput attitude_target{};
+  attitude_target.total_thrust_n = 100.0;
+  attitude_target.desired_q_body_to_ned = Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d::UnitX()));
+
+  const TrajectoryReference zero_torque_ref = make_zero_reference();
+  TrajectoryReference torque_feedforward_ref = zero_torque_ref;
+  torque_feedforward_ref.body_torque_frd.x() = 0.5;
+
+  ControlOutput without_feedforward{};
+  ControlOutput with_feedforward{};
+  for (int i = 0; i < 3; ++i) {
+    without_feedforward = controller_without_feedforward.update_attitude(state, attitude_target, zero_torque_ref, 0.05);
+    with_feedforward = controller_with_feedforward.update_attitude(state, attitude_target, torque_feedforward_ref, 0.05);
+  }
+
+  EXPECT_LT(with_feedforward.torque_frd.x(),
+            without_feedforward.torque_frd.x() + torque_feedforward_ref.body_torque_frd.x() - 1.0e-6);
 }
 
 TEST(AdrcControllerTest, PositionTdShapesHoldReferenceSteps) {

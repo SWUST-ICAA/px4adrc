@@ -47,7 +47,7 @@ struct NlsefGains
 
 double fal(double error, double alpha, double delta);
 void update_tracking_differentiator(double reference, TrackingDifferentiator & td);
-void update_eso(double measurement, double control_input, ExtendedStateObserver & eso);
+void update_eso(double measurement, double control_input, ExtendedStateObserver & eso, double state_derivative_offset = 0.0);
 double compute_nlsef(double e1, double e2, const NlsefGains & gains);
 
 }  // namespace px4adrc
