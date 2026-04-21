@@ -21,10 +21,14 @@ public:
 
 private:
   ControllerParams params_{};
+  std::array<TrackingDifferentiator, 3> position_td_{};
+  std::array<TrackingDifferentiator, 3> attitude_td_{};
   std::array<ExtendedStateObserver, 3> pos_eso_{};
   std::array<ExtendedStateObserver, 3> attitude_eso_{};
   std::array<double, 3> last_position_accel_cmd_ned_{{0.0, 0.0, 0.0}};
   std::array<double, 3> last_attitude_feedback_torque_cmd_desired_frd_{{0.0, 0.0, 0.0}};
+  bool position_td_initialized_{false};
+  bool attitude_td_initialized_{false};
   bool position_states_initialized_{false};
   bool attitude_states_initialized_{false};
 };

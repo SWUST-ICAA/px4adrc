@@ -8,6 +8,11 @@
 
 namespace px4adrc {
 
+struct WrenchFrd {
+  double total_thrust_n{0.0};
+  Eigen::Vector3d torque_frd{Eigen::Vector3d::Zero()};
+};
+
 inline double clamp_scalar(double value, double lower, double upper) { return std::min(std::max(value, lower), upper); }
 
 inline void apply_tilt_limit(Eigen::Vector3d *thrust_vector_over_mass_ned, double max_tilt_rad) {
@@ -133,6 +138,27 @@ inline std::array<double, kMotorCount> quad_x_allocate(double total_thrust_n, co
   thrusts[3] = 0.25 * total_thrust_n - 0.25 * torque_frd.x() / arm_xy - 0.25 * torque_frd.y() / arm_xy - 0.25 * torque_frd.z() / yaw_coeff;
 
   return clamp_motor_thrusts(thrusts, params);
+}
+
+inline WrenchFrd quad_x_wrench_from_motor_thrusts(const std::array<double, kMotorCount> &motor_thrusts_n,
+                                                  const ControllerParams &params) {
+  const auto thrusts = clamp_motor_thrusts(motor_thrusts_n, params);
+  const double arm_xy = params.arm_length_m / std::sqrt(2.0);
+  const double yaw_coeff = std::max(params.yaw_moment_coeff, 1e-9);
+
+  WrenchFrd wrench{};
+  for (double thrust : thrusts) {
+    wrench.total_thrust_n += thrust;
+  }
+
+  if (arm_xy <= 1e-9) {
+    return wrench;
+  }
+
+  wrench.torque_frd.x() = arm_xy * (-thrusts[0] + thrusts[1] + thrusts[2] - thrusts[3]);
+  wrench.torque_frd.y() = arm_xy * (thrusts[0] - thrusts[1] + thrusts[2] - thrusts[3]);
+  wrench.torque_frd.z() = yaw_coeff * (thrusts[0] + thrusts[1] - thrusts[2] - thrusts[3]);
+  return wrench;
 }
 
 } // namespace px4adrc
