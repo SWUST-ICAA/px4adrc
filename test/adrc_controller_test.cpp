@@ -252,6 +252,29 @@ TEST(AdrcControllerTest, AttitudeObserverIgnoresPureTorqueFeedforwardAtZeroError
   EXPECT_NEAR(output.torque_frd.z(), ref.body_torque_frd.z(), kTolerance);
 }
 
+TEST(AdrcControllerTest, AttitudeTrackingRotatesTorqueFeedforwardIntoActiveDesiredFrame) {
+  ControllerParams params = make_base_params();
+
+  AdrcController controller(params);
+  VehicleState state = make_level_state();
+  state.q_body_to_ned = Eigen::Quaterniond(Eigen::AngleAxisd(0.5 * M_PI, Eigen::Vector3d::UnitZ()));
+
+  PositionControlOutput attitude_target{};
+  attitude_target.total_thrust_n = 100.0;
+  attitude_target.desired_q_body_to_ned = state.q_body_to_ned;
+
+  TrajectoryReference ref = make_zero_reference();
+  ref.body_torque_frd = Eigen::Vector3d(1.0, 0.0, 0.0);
+  ref.yaw = 0.0;
+
+  const ControlOutput output = controller.update_attitude(state, attitude_target, ref, 0.01);
+  const Eigen::Vector3d expected_torque = attitude_target.desired_q_body_to_ned.conjugate() * ref.body_torque_frd;
+
+  EXPECT_NEAR(output.torque_frd.x(), expected_torque.x(), kTolerance);
+  EXPECT_NEAR(output.torque_frd.y(), expected_torque.y(), kTolerance);
+  EXPECT_NEAR(output.torque_frd.z(), expected_torque.z(), kTolerance);
+}
+
 TEST(AdrcControllerTest, AttitudeControlUsesMeasuredRateKinematics) {
   ControllerParams slow_observer = make_base_params();
   slow_observer.attitude_td_gains[0].r = 0.0;
@@ -318,6 +341,32 @@ TEST(AdrcControllerTest, AttitudeTrackingUsesMeasuredBodyRatesAfterInitializatio
   EXPECT_LT(output.torque_frd.x(), -1.0e-6);
   EXPECT_NEAR(output.torque_frd.y(), 0.0, kTolerance);
   EXPECT_NEAR(output.torque_frd.z(), 0.0, kTolerance);
+}
+
+TEST(AdrcControllerTest, AttitudeTrackingRotatesBodyRateFeedforwardIntoActiveDesiredFrame) {
+  ControllerParams params = make_base_params();
+  for (int axis = 0; axis < 3; ++axis) {
+    params.attitude_nlsef_gains[axis] = NlsefGains{0.0, 1.0, 1.0, 1.0, 0.01};
+  }
+
+  AdrcController controller(params);
+  VehicleState state = make_level_state();
+  state.q_body_to_ned = Eigen::Quaterniond(Eigen::AngleAxisd(0.5 * M_PI, Eigen::Vector3d::UnitZ()));
+
+  PositionControlOutput attitude_target{};
+  attitude_target.total_thrust_n = 100.0;
+  attitude_target.desired_q_body_to_ned = state.q_body_to_ned;
+
+  TrajectoryReference ref = make_zero_reference();
+  ref.body_rates_frd = Eigen::Vector3d(1.0, 0.0, 0.0);
+  ref.yaw = 0.0;
+
+  const ControlOutput output = controller.update_attitude(state, attitude_target, ref, 0.01);
+  const Eigen::Vector3d expected_torque = attitude_target.desired_q_body_to_ned.conjugate() * ref.body_rates_frd;
+
+  EXPECT_NEAR(output.torque_frd.x(), expected_torque.x(), kTolerance);
+  EXPECT_NEAR(output.torque_frd.y(), expected_torque.y(), kTolerance);
+  EXPECT_NEAR(output.torque_frd.z(), expected_torque.z(), kTolerance);
 }
 
 TEST(AdrcControllerTest, PositionTdShapesHoldReferenceSteps) {
