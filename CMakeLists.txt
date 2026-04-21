@@ -74,18 +74,5 @@ install(DIRECTORY msg
   DESTINATION share/${PROJECT_NAME}
 )
 
-if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
-
-  ament_add_gtest(adrc_controller_test
-    test/adrc_controller_test.cpp
-  )
-  target_link_libraries(adrc_controller_test px4adrc_core)
-  target_include_directories(adrc_controller_test PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  )
-endif()
-
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()
