@@ -57,17 +57,17 @@ void initialize_position_td_states(const TrajectoryReference &ref, const Control
                                    std::array<TrackingDifferentiator, 3> &position_td) {
   for (int i = 0; i < 3; ++i) {
     position_td[i].x1 = ref.position_ned[i];
-    position_td[i].x2 = 0.0;
+    position_td[i].x2 = ref.velocity_ned[i];
     position_td[i].r = std::max(0.0, params.position_td_gains[i].r);
   }
 }
 
 void initialize_attitude_states(const Eigen::Vector3d &attitude_error_desired_frd,
-                                const Eigen::Vector3d &current_body_rates_desired_frd,
+                                const Eigen::Vector3d &attitude_error_rate_desired_frd,
                                 std::array<ExtendedStateObserver, 3> &attitude_eso) {
   for (int i = 0; i < 3; ++i) {
     attitude_eso[i].z1 = attitude_error_desired_frd[i];
-    attitude_eso[i].z2 = current_body_rates_desired_frd[i];
+    attitude_eso[i].z2 = attitude_error_rate_desired_frd[i];
     attitude_eso[i].z3 = 0.0;
   }
 }
@@ -127,14 +127,14 @@ Eigen::Vector3d update_position_channel(const VehicleState &state, const Traject
     position_td[i].r = td_r;
 
     double desired_position = ref.position_ned[i];
-    double desired_velocity = 0.0;
+    double desired_velocity = ref.velocity_ned[i];
     if (td_r > 1e-6) {
       update_tracking_differentiator(ref.position_ned[i], position_td[i]);
       desired_position = position_td[i].x1;
       desired_velocity = position_td[i].x2;
     } else {
       position_td[i].x1 = ref.position_ned[i];
-      position_td[i].x2 = 0.0;
+      position_td[i].x2 = ref.velocity_ned[i];
     }
 
     pos_eso[i].h = dt;
@@ -160,7 +160,26 @@ Eigen::Quaterniond current_to_desired_body_quaternion(const Eigen::Quaterniond &
   return q_current_to_desired;
 }
 
+Eigen::Vector3d estimate_desired_body_rates_desired_frd(const Eigen::Quaterniond &last_desired_q_body_to_ned,
+                                                        const Eigen::Quaterniond &desired_q_body_to_ned, double dt) {
+  if (dt <= 1e-6) {
+    return Eigen::Vector3d::Zero();
+  }
+
+  const Eigen::Quaterniond q_last_desired_to_current_desired =
+      body_frame_transform(last_desired_q_body_to_ned, desired_q_body_to_ned);
+  const Eigen::AngleAxisd desired_frame_delta(q_last_desired_to_current_desired);
+  if (std::abs(desired_frame_delta.angle()) <= 1e-9) {
+    return Eigen::Vector3d::Zero();
+  }
+
+  // `body_frame_transform(last, current)` gives the coordinate transform from the old desired body
+  // frame into the current desired body frame, so its rotation is the negative of the desired body motion.
+  return -(desired_frame_delta.angle() / dt) * desired_frame_delta.axis();
+}
+
 Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::Quaterniond &desired_q_body_to_ned,
+                                        const Eigen::Quaterniond *last_desired_q_body_to_ned,
                                         std::array<ExtendedStateObserver, 3> &attitude_eso,
                                         const std::array<double, 3> &last_total_torque_cmd_desired_frd,
                                         bool *states_initialized,
@@ -168,9 +187,14 @@ Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::
   const Eigen::Quaterniond q_current_to_desired = current_to_desired_body_quaternion(state.q_body_to_ned, desired_q_body_to_ned);
   const Eigen::Vector3d attitude_error_desired_frd = 2.0 * q_current_to_desired.vec();
   const Eigen::Vector3d current_body_rates_desired_frd = q_current_to_desired * state.body_rates_frd;
+  const Eigen::Vector3d desired_body_rates_desired_frd =
+      last_desired_q_body_to_ned != nullptr
+          ? estimate_desired_body_rates_desired_frd(*last_desired_q_body_to_ned, desired_q_body_to_ned, dt)
+          : Eigen::Vector3d::Zero();
+  const Eigen::Vector3d attitude_error_rate_desired_frd = current_body_rates_desired_frd - desired_body_rates_desired_frd;
 
   if (states_initialized != nullptr && !*states_initialized) {
-    initialize_attitude_states(attitude_error_desired_frd, current_body_rates_desired_frd, attitude_eso);
+    initialize_attitude_states(attitude_error_desired_frd, attitude_error_rate_desired_frd, attitude_eso);
     *states_initialized = true;
   }
 
@@ -181,7 +205,7 @@ Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::
     update_eso(attitude_error_desired_frd[i], last_total_torque_cmd_desired_frd[i], attitude_eso[i]);
 
     const double e1 = -attitude_eso[i].z1;
-    const double e2 = -current_body_rates_desired_frd[i];
+    const double e2 = -attitude_eso[i].z2;
     const double feedback_correction = compute_nlsef(e1, e2, params.attitude_nlsef_gains[i]) - attitude_eso[i].z3;
     torque_cmd_desired_frd[i] = feedback_correction / attitude_eso[i].b0;
   }
@@ -259,7 +283,9 @@ ControlOutput AdrcController::update_attitude(const VehicleState &state, const P
   }
 
   const Eigen::Vector3d torque_cmd = update_attitude_channel(
-      state, position_output.desired_q_body_to_ned, attitude_eso_, last_attitude_total_torque_cmd_desired_frd_,
+      state, position_output.desired_q_body_to_ned,
+      last_attitude_desired_q_valid_ ? &last_attitude_desired_q_body_to_ned_ : nullptr, attitude_eso_,
+      last_attitude_total_torque_cmd_desired_frd_,
       &attitude_states_initialized_, params_, clamped_dt);
 
   ControlOutput output{};
