@@ -30,7 +30,6 @@ px4adrc:
       nlsef_alpha2: [0.5, 0.5, 0.5]
       nlsef_delta: [0.01, 0.01, 0.01]
     attitude_adrc:
-      attitude_td_r: [3.2, 3.2, 0.0]
       attitude_eso_beta1: [0.0, 0.0, 0.0]
       attitude_eso_beta2: [0.0, 0.0, 0.0]
       attitude_eso_beta3: [0.0, 0.0, 0.0]

@@ -15,6 +15,3 @@ px4adrc_reference:
       tilt_angle_deg: 15.0
       yaw_mode: fixed
       speed_ramp_time_s: 10.0
-    vehicle:
-      gravity: 9.81
-      inertia_diag: [0.02384669, 0.02394962, 0.04399995]

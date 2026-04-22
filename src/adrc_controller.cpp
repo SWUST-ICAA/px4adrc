@@ -43,14 +43,13 @@ std::array<double, 3> attitude_input_gains(const ControllerParams &params) {
   return gains;
 }
 
-void initialize_position_states(const VehicleState &state, const TrajectoryReference &ref,
-                                std::array<ExtendedStateObserver, 3> &pos_eso,
+void initialize_position_states(const VehicleState &state, std::array<ExtendedStateObserver, 3> &pos_eso,
                                 std::array<double, 3> &last_accel_cmd_ned) {
   for (int i = 0; i < 3; ++i) {
     pos_eso[i].z1 = state.position_ned[i];
     pos_eso[i].z2 = state.velocity_ned[i];
     pos_eso[i].z3 = 0.0;
-    last_accel_cmd_ned[i] = ref.acceleration_ned[i];
+    last_accel_cmd_ned[i] = 0.0;
   }
 }
 
@@ -58,7 +57,7 @@ void initialize_position_td_states(const TrajectoryReference &ref, const Control
                                    std::array<TrackingDifferentiator, 3> &position_td) {
   for (int i = 0; i < 3; ++i) {
     position_td[i].x1 = ref.position_ned[i];
-    position_td[i].x2 = ref.velocity_ned[i];
+    position_td[i].x2 = 0.0;
     position_td[i].r = std::max(0.0, params.position_td_gains[i].r);
   }
 }
@@ -70,15 +69,6 @@ void initialize_attitude_states(const Eigen::Vector3d &attitude_error_desired_fr
     attitude_eso[i].z1 = attitude_error_desired_frd[i];
     attitude_eso[i].z2 = current_body_rates_desired_frd[i];
     attitude_eso[i].z3 = 0.0;
-  }
-}
-
-void initialize_attitude_td_states(const Eigen::Vector3d &desired_body_rates_frd, const ControllerParams &params,
-                                   std::array<TrackingDifferentiator, 3> &attitude_td) {
-  for (int i = 0; i < 3; ++i) {
-    attitude_td[i].x1 = desired_body_rates_frd[i];
-    attitude_td[i].x2 = 0.0;
-    attitude_td[i].r = std::max(0.0, params.attitude_td_gains[i].r);
   }
 }
 
@@ -96,19 +86,6 @@ Eigen::Quaterniond body_frame_transform(const Eigen::Quaterniond &from_q_body_to
 Eigen::Vector3d transform_body_frame_vector(const Eigen::Vector3d &vector, const Eigen::Quaterniond &from_q_body_to_ned,
                                             const Eigen::Quaterniond &to_q_body_to_ned) {
   return body_frame_transform(from_q_body_to_ned, to_q_body_to_ned) * vector;
-}
-
-Eigen::Quaterniond reference_q_body_to_ned(const TrajectoryReference &ref, const ControllerParams &params) {
-  Eigen::Vector3d thrust_vector_over_mass_ned(0.0, 0.0, params.gravity);
-  thrust_vector_over_mass_ned -= ref.acceleration_ned;
-
-  Eigen::Vector3d thrust_direction_ned = Eigen::Vector3d::UnitZ();
-  const double thrust_vector_norm = thrust_vector_over_mass_ned.norm();
-  if (thrust_vector_norm > 1e-9) {
-    thrust_direction_ned = thrust_vector_over_mass_ned / thrust_vector_norm;
-  }
-
-  return quaternion_from_thrust_direction_yaw_ned(thrust_direction_ned, ref.yaw);
 }
 
 void rotate_attitude_internal_states(const Eigen::Quaterniond &from_desired_q_body_to_ned,
@@ -142,27 +119,23 @@ Eigen::Vector3d update_position_channel(const VehicleState &state, const Traject
                                         std::array<ExtendedStateObserver, 3> &pos_eso,
                                         const std::array<double, 3> &last_accel_cmd_ned,
                                         const ControllerParams &params, double dt) {
-  Eigen::Vector3d accel_cmd = ref.acceleration_ned;
+  Eigen::Vector3d accel_cmd = Eigen::Vector3d::Zero();
 
   for (int i = 0; i < 3; ++i) {
     const double td_r = std::max(0.0, params.position_td_gains[i].r);
     position_td[i].h = dt;
     position_td[i].r = td_r;
 
-    const bool use_td_for_hold_reference = td_r > 1e-6 &&
-                                           std::abs(ref.velocity_ned[i]) <= 1e-6 &&
-                                           std::abs(ref.acceleration_ned[i]) <= 1e-6;
-
-    if (use_td_for_hold_reference) {
+    double desired_position = ref.position_ned[i];
+    double desired_velocity = 0.0;
+    if (td_r > 1e-6) {
       update_tracking_differentiator(ref.position_ned[i], position_td[i]);
-      accel_cmd[i] = 0.0;
+      desired_position = position_td[i].x1;
+      desired_velocity = position_td[i].x2;
     } else {
       position_td[i].x1 = ref.position_ned[i];
-      position_td[i].x2 = ref.velocity_ned[i];
+      position_td[i].x2 = 0.0;
     }
-
-    const double desired_position = use_td_for_hold_reference ? position_td[i].x1 : ref.position_ned[i];
-    const double desired_velocity = use_td_for_hold_reference ? position_td[i].x2 : ref.velocity_ned[i];
 
     pos_eso[i].h = dt;
     update_eso(state.position_ned[i], last_accel_cmd_ned[i], pos_eso[i]);
@@ -188,10 +161,6 @@ Eigen::Quaterniond current_to_desired_body_quaternion(const Eigen::Quaterniond &
 }
 
 Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::Quaterniond &desired_q_body_to_ned,
-                                        const Eigen::Quaterniond &reference_q_body_to_ned,
-                                        const Eigen::Vector3d &desired_body_rates_ref_frd,
-                                        const Eigen::Vector3d &torque_feedforward_desired_frd,
-                                        std::array<TrackingDifferentiator, 3> &attitude_td,
                                         std::array<ExtendedStateObserver, 3> &attitude_eso,
                                         const std::array<double, 3> &last_total_torque_cmd_desired_frd,
                                         bool *states_initialized,
@@ -199,42 +168,22 @@ Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::
   const Eigen::Quaterniond q_current_to_desired = current_to_desired_body_quaternion(state.q_body_to_ned, desired_q_body_to_ned);
   const Eigen::Vector3d attitude_error_desired_frd = 2.0 * q_current_to_desired.vec();
   const Eigen::Vector3d current_body_rates_desired_frd = q_current_to_desired * state.body_rates_frd;
-  Eigen::Vector3d filtered_desired_body_rates_ref_frd = desired_body_rates_ref_frd;
-
-  for (int i = 0; i < 3; ++i) {
-    const double td_r = std::max(0.0, params.attitude_td_gains[i].r);
-    attitude_td[i].h = dt;
-    attitude_td[i].r = td_r;
-
-    if (td_r > 1e-6) {
-      update_tracking_differentiator(desired_body_rates_ref_frd[i], attitude_td[i]);
-      filtered_desired_body_rates_ref_frd[i] = attitude_td[i].x1;
-    } else {
-      attitude_td[i].x1 = desired_body_rates_ref_frd[i];
-      attitude_td[i].x2 = 0.0;
-    }
-  }
-
-  const Eigen::Vector3d filtered_desired_body_rates_desired_frd =
-      transform_body_frame_vector(filtered_desired_body_rates_ref_frd, reference_q_body_to_ned, desired_q_body_to_ned);
 
   if (states_initialized != nullptr && !*states_initialized) {
     initialize_attitude_states(attitude_error_desired_frd, current_body_rates_desired_frd, attitude_eso);
     *states_initialized = true;
   }
 
-  Eigen::Vector3d torque_cmd_desired_frd = torque_feedforward_desired_frd;
+  Eigen::Vector3d torque_cmd_desired_frd = Eigen::Vector3d::Zero();
 
   for (int i = 0; i < 3; ++i) {
     attitude_eso[i].h = dt;
-    update_eso(attitude_error_desired_frd[i], last_total_torque_cmd_desired_frd[i], attitude_eso[i],
-               filtered_desired_body_rates_desired_frd[i]);
+    update_eso(attitude_error_desired_frd[i], last_total_torque_cmd_desired_frd[i], attitude_eso[i]);
 
     const double e1 = -attitude_eso[i].z1;
-    const double e2 = filtered_desired_body_rates_desired_frd[i] - current_body_rates_desired_frd[i];
+    const double e2 = -current_body_rates_desired_frd[i];
     const double feedback_correction = compute_nlsef(e1, e2, params.attitude_nlsef_gains[i]) - attitude_eso[i].z3;
-    const double feedback_torque_desired_frd = feedback_correction / attitude_eso[i].b0;
-    torque_cmd_desired_frd[i] += feedback_torque_desired_frd;
+    torque_cmd_desired_frd[i] = feedback_correction / attitude_eso[i].b0;
   }
 
   return q_current_to_desired.conjugate() * torque_cmd_desired_frd;
@@ -247,7 +196,6 @@ AdrcController::AdrcController(const ControllerParams &params) { set_params(para
 void AdrcController::set_params(const ControllerParams &params) {
   params_ = params;
   position_td_ = {};
-  attitude_td_ = {};
   pos_eso_ = {};
   attitude_eso_ = {};
   apply_eso_gains(pos_eso_, params_.position_eso_gains, position_input_gains(params_));
@@ -255,7 +203,6 @@ void AdrcController::set_params(const ControllerParams &params) {
   last_position_accel_cmd_ned_.fill(0.0);
   last_attitude_total_torque_cmd_desired_frd_.fill(0.0);
   position_td_initialized_ = false;
-  attitude_td_initialized_ = false;
   position_states_initialized_ = false;
   attitude_states_initialized_ = false;
   last_attitude_desired_q_body_to_ned_ = Eigen::Quaterniond::Identity();
@@ -267,7 +214,7 @@ const ControllerParams &AdrcController::params() const { return params_; }
 PositionControlOutput AdrcController::update_position(const VehicleState &state, const TrajectoryReference &ref, double dt) {
   const double clamped_dt = std::clamp(dt, 1e-4, 0.05);
   if (!position_states_initialized_) {
-    initialize_position_states(state, ref, pos_eso_, last_position_accel_cmd_ned_);
+    initialize_position_states(state, pos_eso_, last_position_accel_cmd_ned_);
     position_states_initialized_ = true;
   }
 
@@ -303,16 +250,8 @@ PositionControlOutput AdrcController::update_position(const VehicleState &state,
 }
 
 ControlOutput AdrcController::update_attitude(const VehicleState &state, const PositionControlOutput &position_output,
-                                              const TrajectoryReference &ref, double dt) {
+                                              const TrajectoryReference &, double dt) {
   const double clamped_dt = std::clamp(dt, 1e-4, 0.05);
-  if (!attitude_td_initialized_) {
-    initialize_attitude_td_states(ref.body_rates_frd, params_, attitude_td_);
-    attitude_td_initialized_ = true;
-  }
-
-  const Eigen::Quaterniond ref_q_body_to_ned = reference_q_body_to_ned(ref, params_);
-  const Eigen::Vector3d torque_feedforward_desired_frd =
-      transform_body_frame_vector(ref.body_torque_frd, ref_q_body_to_ned, position_output.desired_q_body_to_ned);
 
   if (attitude_states_initialized_ && last_attitude_desired_q_valid_) {
     rotate_attitude_internal_states(last_attitude_desired_q_body_to_ned_, position_output.desired_q_body_to_ned, attitude_eso_,
@@ -320,8 +259,8 @@ ControlOutput AdrcController::update_attitude(const VehicleState &state, const P
   }
 
   const Eigen::Vector3d torque_cmd = update_attitude_channel(
-      state, position_output.desired_q_body_to_ned, ref_q_body_to_ned, ref.body_rates_frd, torque_feedforward_desired_frd, attitude_td_,
-      attitude_eso_, last_attitude_total_torque_cmd_desired_frd_, &attitude_states_initialized_, params_, clamped_dt);
+      state, position_output.desired_q_body_to_ned, attitude_eso_, last_attitude_total_torque_cmd_desired_frd_,
+      &attitude_states_initialized_, params_, clamped_dt);
 
   ControlOutput output{};
   output.total_thrust_n = position_output.total_thrust_n;

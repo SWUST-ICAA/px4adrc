@@ -37,11 +37,6 @@ struct ControllerParams {
     NlsefGains{2.5, 1.5, 0.8, 0.5, 0.01},
     NlsefGains{2.0, 1.2, 0.8, 0.5, 0.01},
   }};
-  std::array<TrackingDifferentiatorGains, 3> attitude_td_gains{{
-    TrackingDifferentiatorGains{1.0},
-    TrackingDifferentiatorGains{1.0},
-    TrackingDifferentiatorGains{1.0},
-  }};
   std::array<EsoGains, 3> attitude_eso_gains{{
     EsoGains{1.0, 1.0, 1.0, 1.0},
     EsoGains{1.0, 1.0, 1.0, 1.0},
@@ -61,7 +56,6 @@ struct VehicleState {
   Eigen::Vector3d acceleration_ned{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_body_to_ned{Eigen::Quaterniond::Identity()};
   Eigen::Vector3d body_rates_frd{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d body_accel_frd{Eigen::Vector3d::Zero()};
 };
 
 struct TrajectoryReference {
@@ -69,9 +63,11 @@ struct TrajectoryReference {
   Eigen::Vector3d position_ned{Eigen::Vector3d::Zero()};
   Eigen::Vector3d velocity_ned{Eigen::Vector3d::Zero()};
   Eigen::Vector3d acceleration_ned{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d body_rates_frd{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d body_torque_frd{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d jerk_ned{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d snap_ned{Eigen::Vector3d::Zero()};
   double yaw{0.0};
+  double yaw_rate{0.0};
+  double yaw_acceleration{0.0};
   bool valid{false};
 };
 

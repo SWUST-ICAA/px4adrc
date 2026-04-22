@@ -63,9 +63,11 @@ TrajectoryReference trajectory_reference_from_msg(const px4adrc::msg::FlatTrajec
   ref.position_ned = Eigen::Vector3d(msg.position_ned.x, msg.position_ned.y, msg.position_ned.z);
   ref.velocity_ned = Eigen::Vector3d(msg.velocity_ned.x, msg.velocity_ned.y, msg.velocity_ned.z);
   ref.acceleration_ned = Eigen::Vector3d(msg.acceleration_ned.x, msg.acceleration_ned.y, msg.acceleration_ned.z);
-  ref.body_rates_frd = Eigen::Vector3d(msg.body_rates_frd.x, msg.body_rates_frd.y, msg.body_rates_frd.z);
-  ref.body_torque_frd = Eigen::Vector3d(msg.body_torque_frd.x, msg.body_torque_frd.y, msg.body_torque_frd.z);
+  ref.jerk_ned = Eigen::Vector3d(msg.jerk_ned.x, msg.jerk_ned.y, msg.jerk_ned.z);
+  ref.snap_ned = Eigen::Vector3d(msg.snap_ned.x, msg.snap_ned.y, msg.snap_ned.z);
   ref.yaw = msg.yaw;
+  ref.yaw_rate = msg.yaw_rate;
+  ref.yaw_acceleration = msg.yaw_acceleration;
   ref.valid = true;
   return ref;
 }
@@ -154,9 +156,6 @@ void AdrcNode::declare_parameters() {
   this->declare_parameter<std::vector<double>>("position_adrc.nlsef_delta",
                                                {defaults.position_nlsef_gains[0].delta, defaults.position_nlsef_gains[1].delta,
                                                 defaults.position_nlsef_gains[2].delta});
-  this->declare_parameter<std::vector<double>>("attitude_adrc.attitude_td_r",
-                                               {defaults.attitude_td_gains[0].r, defaults.attitude_td_gains[1].r,
-                                                defaults.attitude_td_gains[2].r});
   this->declare_parameter<std::vector<double>>("attitude_adrc.attitude_eso_beta1",
                                                {defaults.attitude_eso_gains[0].beta1, defaults.attitude_eso_gains[1].beta1,
                                                 defaults.attitude_eso_gains[2].beta1});
@@ -248,9 +247,6 @@ void AdrcNode::load_parameters() {
                                             {params.position_nlsef_gains[0].delta, params.position_nlsef_gains[1].delta,
                                              params.position_nlsef_gains[2].delta}));
 
-  assign_td_axis_gains(params.attitude_td_gains, vector_param_or_default(*this, "attitude_adrc.attitude_td_r",
-                                                                         {params.attitude_td_gains[0].r, params.attitude_td_gains[1].r,
-                                                                          params.attitude_td_gains[2].r}));
   assign_eso_axis_gains(params.attitude_eso_gains,
                         vector_param_or_default(*this, "attitude_adrc.attitude_eso_beta1",
                                                 {params.attitude_eso_gains[0].beta1, params.attitude_eso_gains[1].beta1,
@@ -354,7 +350,6 @@ void AdrcNode::angular_velocity_callback(const px4_msgs::msg::VehicleAngularVelo
 
   state_.timestamp_us = msg->timestamp;
   state_.body_rates_frd = Eigen::Vector3d(msg->xyz[0], msg->xyz[1], msg->xyz[2]);
-  state_.body_accel_frd = Eigen::Vector3d(msg->xyz_derivative[0], msg->xyz_derivative[1], msg->xyz_derivative[2]);
   has_angular_velocity_ = true;
 
   const uint64_t attitude_loop_us = msg->timestamp != 0 ? msg->timestamp : now_micros(*this->get_clock());
@@ -520,9 +515,11 @@ void AdrcNode::update_hold_reference(double target_z_ned) {
   hold_ref_.position_ned.z() = target_z_ned;
   hold_ref_.velocity_ned.setZero();
   hold_ref_.acceleration_ned.setZero();
-  hold_ref_.body_rates_frd.setZero();
-  hold_ref_.body_torque_frd.setZero();
+  hold_ref_.jerk_ned.setZero();
+  hold_ref_.snap_ned.setZero();
   hold_ref_.yaw = captured_yaw_;
+  hold_ref_.yaw_rate = 0.0;
+  hold_ref_.yaw_acceleration = 0.0;
   hold_ref_.valid = true;
 }
 

@@ -46,10 +46,8 @@ The controller requires valid `vehicle_local_position` XY/Z and VXY/VZ estimates
 
 ## Reference Contract
 
-- `position_ned`, `velocity_ned`, `acceleration_ned`: PX4 world frame `NED`
-- `body_rates_frd`: desired body-rate feedforward in the desired body frame `FRD`
-- `body_torque_frd`: desired body-torque feedforward in the desired body frame `FRD`
-- `yaw`: desired heading in `NED`
+- `position_ned`, `velocity_ned`, `acceleration_ned`, `jerk_ned`, `snap_ned`: PX4 world frame `NED`
+- `yaw`, `yaw_rate`, `yaw_acceleration`: desired heading and heading derivatives in `NED`
 
 ## Controller Parameters
 
@@ -58,7 +56,6 @@ Controller tuning lives in [config/px4adrc.yaml](/home/nanwan/work_dir/px4adrc_w
 - `position_adrc.td_r`
 - `position_adrc.eso_beta1/beta2/beta3/b0`
 - `position_adrc.nlsef_k1/k2/alpha1/alpha2/delta`
-- `attitude_adrc.attitude_td_r`
 - `attitude_adrc.attitude_eso_beta1/beta2/beta3/b0`
 - `attitude_adrc.attitude_nlsef_k1/k2/alpha1/alpha2/delta`
 
