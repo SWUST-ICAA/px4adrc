@@ -18,24 +18,24 @@ px4adrc:
     motors:
       thrust_model_factor: 1.0
     position_adrc:
-      max_tilt_deg: 12.0
+      max_tilt_deg: 35.0
       td_r: [1.0, 1.0, 2.0]
       eso_beta1: [0.1, 0.1, 6.0]
       eso_beta2: [0.6, 0.6, 30.0]
       eso_beta3: [1.0, 1.0, 60.0]
       eso_b0: [1.0, 1.0, 1.0]
       nlsef_k1: [0.8, 0.8, 2.0]
-      nlsef_k2: [0.2, 0.2, 1.0]
-      nlsef_alpha1: [0.8, 0.8, 0.8]
-      nlsef_alpha2: [0.5, 0.5, 0.5]
+      nlsef_k2: [0.05, 0.05, 1.0]
+      nlsef_alpha1: [1.0, 1.0, 1.0]
+      nlsef_alpha2: [1.0, 1.0, 1.0]
       nlsef_delta: [0.01, 0.01, 0.01]
     attitude_adrc:
-      attitude_eso_beta1: [0.0, 0.0, 0.0]
-      attitude_eso_beta2: [0.0, 0.0, 0.0]
-      attitude_eso_beta3: [0.0, 0.0, 0.0]
-      attitude_eso_b0: [0.0, 0.0, 0.0]
-      attitude_nlsef_k1: [3.5, 3.5, 0.0]
-      attitude_nlsef_k2: [0.38, 0.38, 0.0]
+      attitude_eso_beta1: [20.0, 20.0, 5.0]
+      attitude_eso_beta2: [200.0, 200.0, 40.0]
+      attitude_eso_beta3: [300.0, 300.0, 60.0]
+      attitude_eso_b0: [43.47, 43.47, 22.77]
+      attitude_nlsef_k1: [30.0, 30.0, 2.0]
+      attitude_nlsef_k2: [3.0, 3.0, 0.2]
       attitude_nlsef_alpha1: [1.0, 1.0, 1.0]
       attitude_nlsef_alpha2: [1.0, 1.0, 1.0]
       attitude_nlsef_delta: [0.01, 0.01, 0.01]
