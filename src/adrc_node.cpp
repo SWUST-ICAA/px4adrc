@@ -72,10 +72,8 @@ TrajectoryReference trajectory_reference_from_msg(const px4adrc::msg::FlatTrajec
   return ref;
 }
 
-TrajectoryReference non_tracking_reference(const TrajectoryReference &hold_ref, MissionState mission_state, double takeoff_target_z_ned,
-                                           double current_yaw) {
+TrajectoryReference non_tracking_reference(const TrajectoryReference &hold_ref, MissionState mission_state, double takeoff_target_z_ned) {
   TrajectoryReference ref = hold_ref;
-  ref.yaw = current_yaw;
 
   if (mission_state == MissionState::TAKEOFF) {
     ref.position_ned.z() = takeoff_target_z_ned;
@@ -506,7 +504,7 @@ TrajectoryReference AdrcNode::active_reference(uint64_t now_us) const {
     return external_ref_;
   }
 
-  return non_tracking_reference(hold_ref_, mission_state_, takeoff_target_z_ned_, captured_yaw_);
+  return non_tracking_reference(hold_ref_, mission_state_, takeoff_target_z_ned_);
 }
 
 void AdrcNode::update_hold_reference(double target_z_ned) {
