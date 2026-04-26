@@ -140,8 +140,8 @@ Eigen::Vector3d update_position_channel(const VehicleState &state, const Traject
     pos_eso[i].h = dt;
     update_eso(state.position_ned[i], last_accel_cmd_ned[i], pos_eso[i]);
 
-    const double e1 = desired_position - pos_eso[i].z1;
-    const double e2 = desired_velocity - pos_eso[i].z2;
+    const double e1 = desired_position - state.position_ned[i];
+    const double e2 = desired_velocity - state.velocity_ned[i];
     const double feedback_correction = compute_nlsef(e1, e2, params.position_nlsef_gains[i]) - pos_eso[i].z3;
     accel_cmd[i] += feedback_correction / pos_eso[i].b0;
   }
@@ -182,8 +182,8 @@ Eigen::Vector3d update_attitude_channel(const VehicleState &state, const Eigen::
     attitude_eso[i].h = dt;
     update_eso(attitude_error_desired_frd[i], last_total_torque_cmd_desired_frd[i], attitude_eso[i]);
 
-    const double e1 = -attitude_eso[i].z1;
-    const double e2 = -attitude_eso[i].z2;
+    const double e1 = -attitude_error_desired_frd[i];
+    const double e2 = -attitude_error_rate_desired_frd[i];
     const double feedback_correction = compute_nlsef(e1, e2, params.attitude_nlsef_gains[i]) - attitude_eso[i].z3;
     torque_cmd_desired_frd[i] = feedback_correction / attitude_eso[i].b0;
   }

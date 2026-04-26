@@ -20,12 +20,12 @@ px4adrc:
     position_adrc:
       max_tilt_deg: 35.0
       td_r: [1.0, 1.0, 1.0]
-      eso_beta1: [0.0, 0.0, 5.1]
-      eso_beta2: [0.0, 0.0, 40.0]
-      eso_beta3: [0.0, 0.0, 80.0]
+      eso_beta1: [0.0, 0.0, 4.5]
+      eso_beta2: [0.0, 0.0, 6.75]
+      eso_beta3: [0.0, 0.0, 3.375]
       eso_b0: [1.0, 1.0, 1.0]
       nlsef_k1: [0.85, 0.85, 1.0]
-      nlsef_k2: [0.25, 0.25, 0.2]
+      nlsef_k2: [0.25, 0.25, 1.2]
       nlsef_alpha1: [1.0, 1.0, 1.0]
       nlsef_alpha2: [1.0, 1.0, 1.0]
       nlsef_delta: [0.01, 0.01, 0.01]
